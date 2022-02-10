@@ -1,4 +1,4 @@
-# US Supermarket Data Analysis
+# USA Supermarket Data Analysis
 
 #### Data Science Project, February 2022
 
