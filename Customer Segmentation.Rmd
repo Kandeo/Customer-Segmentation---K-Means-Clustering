@@ -1,0 +1,354 @@
+---
+title: "Customer Segmentation"
+author: "Team Nyali"
+date: "2/8/2022"
+output: html_document
+---
+
+# DEFINING THE QUESTION
+
+# Specific Data Analytics Question
+
+Performing Customer segmentation by analyzing the basic data about customers of supermarket XYZ and developing a model that groups them into non-overlapping sub-groups that are distinct from each other.
+
+# Metrics for Success
+
+Building a model with Clusters that are accurately distinct. 
+
+# Understanding the Context
+
+Customer segmentation is the process by which customers are divided  based on common characteristics so that products can be marketed to the customers more effectively. These characteristics can be based on [Demographics](https://www.voxco.com/blog/what-is-demographic-segmentation/#:~:text=Demographic%20segmentation%20is%20a%20market,can%20be%20addressed%20more%20effectively) or [Behavior](https://www.yieldify.com/blog/behavioral-segmentation-definition-examples/#:~:text=Behavioral%20segmentation%20refers%20to%20a,a%20particular%20business%20or%20website). Customer segmentation is popular because it helps a firm market and sell more effectively as they are able to develop a better understanding of their customers’ needs and desires. The business impact of doing this is even more important as it increases Customer lifetime value and drives greater customer loyalty.
+
+While traditional mass marketing techniques work and are still effective, it is inefficient and costly compared to targeted advertisements where one can correctly identify their customers. In simple terms, if customers can be accurately clustered, customized advertisements and offers to increase engagements can be created. In addition, new market opportunities for products/services can be explored to complement existing ones.
+
+
+# Experimental Design.
+
+1.Data Preparation
+
+ -  Loading the dataset
+ 
+ -  Data Uniformity
+ 
+ -  Checking for Missing/Duplicate Values
+ 
+ -  Checking Outliers
+ 
+2.Exploratory Data Analysis
+
+ -  Univariate Analysis
+  
+ -  Bivariate Analysis
+ 
+3.Clustering
+ 
+4.Conclusions and Recommendations
+
+
+# Data Relevance
+
+ - Customer ID ~ Unique customer ID number
+ 
+ - Gender ~ Gender of the customer (Male or Female)
+ 
+ - Age ~ Age of the Customer in Years
+ 
+ - Annual Income ~ Income of the customers in thousands (K$)
+ 
+ - Spending Score ~ Spending score of the customer from a scale of 1-100
+
+
+# 1. Data Preparation
+
+Loading Libraries
+``` {r}
+#Loading dependencies: 
+library(readxl)
+library(tidyverse)
+library(scales)
+library(psych)
+library(mlr)
+library(grid)
+library(ggplot2)
+library(gridExtra)
+library(crosstable)
+library(GGally)
+library(caret)
+
+#For visualization:
+library(ggcorrplot)
+
+
+#For copying the data:
+library(data.table)
+
+#For Label Encoding
+library(superml)
+
+#For Clustering:
+library(factoextra)
+library("ggdendro")
+library(flashClust)
+library(NbClust)
+library(cluster)
+```
+
+
+Loading the Dataset
+```{r}
+#Importing the data to the Global Environment:
+Demographics <- read_excel("C:/Users/Elijah/Desktop/Customer Demographics.xlsx")
+
+#Printing the first 4 rows of the dataframe
+head(Demographics, n=4)
+
+```
+
+```{r}
+#Checking the Number of Rows and Columns:
+dim(Demographics)
+
+```
+
+
+Data Uniformity
+```{r}
+#Getting Information on the data types on each respective column:
+sapply(Demographics, class)
+
+```
+```{r}
+#Renaming the column names for ease of reference:
+names(Demographics) <- c('CustomerID', 'Gender', 'Age', 'AnnualIncome', 'SpendingScore')
+
+```
+
+
+```{r}
+#Viewing the full information:
+str(Demographics)
+
+```
+ - The Dataset is made up of 200 Rows and 5 Columns
+ 
+ - The datatypes in the data are as follows:
+ 
+   -  Continuous: Customer ID, Age, Annual Income and Spending Score
+   
+   -  Character: Gender
+   
+
+Missing Values
+```{r}
+#Checking for null entries in each column:
+colSums(is.na(Demographics))
+
+```
+
+
+Duplicate values
+```{r}
+#Checking for identical entries:
+sum(duplicated(Demographics))
+
+
+```
+
+The data has no missing or duplicate values.
+
+
+Checking for Outliers
+```{r}
+#Using a Box plot to check for outliers on the numerical variables:
+qplot( x =  Age, y = "", geom = "boxplot", data = Demographics, col = I("darkolivegreen4"), fill = I("cyan3"), main = "Age ")
+qplot( x =  AnnualIncome,  y = "", geom = "boxplot", data = Demographics, col = I("darkolivegreen4"), fill = I("cyan3"), main = "Annual Income (K$)")
+qplot( x =  SpendingScore, y = "", geom = "boxplot", data = Demographics ,col = I("darkolivegreen4"), fill = I("cyan3"), main = "Spending Score (1-100)")
+
+
+```
+An outlier can be observed on Annual Income. Since there's no basis to assume the entry is not valid, the outlier is not dropped.
+
+
+
+# 2. Exploratory Data Analysis
+
+This process involves investigating the dataset to discover patterns.
+
+# Univariate Analysis
+
+This analysis aims to explore each demographic variable in the dataset separately
+
+ - Gender Distribution
+
+```{r}
+#To view the distribution of Gender:
+Gen_table <- table(Demographics$Gender)
+
+#Plotting the Information above:
+x <- c(56, 44)
+labels <- c('Females', 'Males')
+colors <- c('cyan3','cyan4')
+#pie_percent<- round(100*x/sum(x), 0) 
+pie(x, labels = percent(x/100), main=' Gender Distribution', density=30, col=colors)
+legend("topright", c("Females", "Males"), cex = 0.9, fill = colors)
+
+```
+Of the 200 sampled customers, 112 were Females while 88 were Males.
+
+
+ - Age Distribution
+ 
+```{r}
+#To view the Age distribution of the customers:
+Age_table <- table(Demographics$Age)
+
+#Plotting the Information above:
+ggplot(data = Demographics, mapping = aes(x = Age)) + 
+  geom_histogram(fill = "cyan3", color = "black", binwidth = 2) + labs(x = "Age (Year's)", title = "Age Distribution")
+                                                                               
+
+```
+The Age of the customers range from 18-70 years.
+
+Those frequently visiting the supermarket are of the young and adult age groups (27-45)
+
+Less frequent visitors are those aged 55 and above.
+
+The distribution is close to a normal distribution.
+
+
+ - Income Levels
+ 
+```{r}
+#To view the Income distribution of the customers:
+Income_table <- table(Demographics$AnnualIncome)
+
+#Plotting the Information above:
+ggplot(data = Demographics, mapping = aes(x = AnnualIncome)) + 
+  geom_histogram(fill = "cyan3", color = "black", binwidth = 10) + labs(x = "Income (K$)", title = "Income Levels")
+                
+```
+The Income levels of the customers range from $15k - 137k.
+
+People earning an average income of 70k$ have the highest frequency count.
+
+The average annual income of the customers is 60.56k$.
+
+
+ - Spending Score
+ 
+```{r}
+#To view the Spending Score of the customers:
+Spending_table <- table(Demographics$SpendingScore)
+
+#Plotting the Information above:
+ggplot(data = Demographics, mapping = aes(x = SpendingScore)) + 
+  geom_histogram(fill = "cyan3", color = "black", binwidth = 10) + labs(x = "Spending Score (1-100)", title = "Spending Scores")
+
+```
+
+[Spending Score](https://www.predicagroup.com/blog/customer-scoring-segmentation/) is a score given to a customer by the Supermarket authorities based on the money spent and the behavior of the customer.
+
+This is an Important Chart as it gives an idea about the Spending rate of the Customers Visiting the Supermarket.
+
+From the plot, most of the customers have a score in the range of 40 - 60.
+
+There are customers also having a score of 99 showing that the Supermarket caters for the variety of customers with varying needs and requirements.
+
+
+```{r}
+#Printing the Descriptive Summary:
+summary(Demographics)
+
+```
+
+
+# Bivariate Analysis
+ 
+This analysis involves two variables being observed against each other.
+
+ - Correlation Matrix
+
+```{r}
+#Creating a dataframe Cr:
+Cr<- Demographics
+
+#Visualizing the Plot:
+corr_map <- ggcorr(Cr[,3:5], method=c("everything", "pearson"), label=TRUE, hjust = .90, size = 3, layout.exp = 2)
+corr_map
+
+
+```
+
+Age is Negatively correlated with Spending Score.
+
+No correlation exists between Annual Income and Age, Spending Score and Annual Income
+
+
+The analysis seeks to further answer:
+
+
+ - Does Income Levels affect Spending Scores
+
+```{r}
+#To see the relationship between Income and Spending scores across the different genders:
+ggplot(Demographics, aes(x=AnnualIncome, y = SpendingScore )) + geom_point(aes(colour= `Gender`))+labs(title='Relationship Between Income and Spending Score')
+
+```
+
+Roughly, Annual income of $40–70k corresponds to a 40–60 spending score.
+
+There seem to be a cluster-like pattern when looking at income and spending score: High Income Individuals with High Income spending, High Income Income Individuals with Low Spending Score.
+ 
+There doesn't seem to be any difference in spending score when comparing the gender of a customer.
+ 
+ - Does Age influence Spending Scores
+ 
+```{r}
+#To see the relationship between Age and Spending scores across the different genders:
+ggplot(Demographics, aes(x=Age, y = SpendingScore )) + geom_point(aes(colour= `Gender`))+labs(title='Relationship between Age and Spending Score')
+
+```
+
+The lower the age higher the spending score.
+
+Customers in the age range of 15-40 years old make up most the the customers with a spending score of above 60
+ 
+Customers above 40 years old does not seem to have a spending score of above 60
+
+
+ - Does Age influence Annual Income
+ 
+```{r}
+#To see the relationship between Age and Annual Income across the different genders:
+ggplot(Demographics, aes(x=Age, y = AnnualIncome )) + geom_point(aes(colour= `Gender`))+labs(title='Relationship between Age and Annual Income')
+
+```
+
+Income Levels are high among customers aged 30-50 years.
+
+
+
+# K-Means Clustering
+
+
+```{r}
+#Creating the modelling dataframe:
+Model <- copy(Demographics)
+
+#Viewing the Data types:
+sapply(Model, class)
+
+```
+
+# Feature Engineering
+
+1. Feature Scaling
+
+```{r}
+#Transforming the ranges to the same scale of 0 to 1 using Min Max:
+Model = subset(Model, select = -c(Gender))
+Model <- as.data.frame(sapply(Model, function(x) (x-min(x))/(max(x)-min(x))))
+
+```
+
