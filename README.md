@@ -1,4 +1,4 @@
-# Customer Segmentation
+# US Supermarket Data Analysis
 
 #### Data Science Project, February 2022
 
