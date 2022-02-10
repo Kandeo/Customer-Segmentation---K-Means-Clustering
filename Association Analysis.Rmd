@@ -1,0 +1,134 @@
+---
+title: "ASSOCIATIONAL ANALYSIS"
+author: "ROTICH HARON"
+date: "2/8/2022"
+output: html_document
+---
+
+```{r}
+# We first we install the required arules library 
+#
+#install.packages("arules")
+#install and load arulesViz
+#install.packages("arulesViz")
+library(arulesViz)
+#install and load tidyverse
+#install.packages("tidyverse")
+library(tidyverse)
+```
+
+```{r}
+library(arules)
+```
+
+```{r}
+# loading data
+path <- "C:/Users/hp/Downloads/groceries - groceries.csv"
+df<- read_csv(path,',')
+
+```
+
+```{r}
+# coverting the basket to transactional class
+tr <- read.transactions(path, sep=',')
+#sep tell how items are separated. In this case you have separated using ','
+
+```
+
+```{r}
+
+class(tr)
+```
+
+```{r}
+tr
+
+```
+
+```{r}
+summary(tr)
+# there are 9836 transactions and  231 products
+
+```
+
+```{r}
+#Create an item frequency plot for the top 10 items
+
+if (!require("RColorBrewer")) {
+  # install color package of R
+install.packages("RColorBrewer")
+#include library RColorBrewer
+library(RColorBrewer)
+}
+itemFrequencyPlot(tr,topN=20,type="absolute",col=brewer.pal(8,'Pastel2'), main="Absolute Item Frequency Plot")
+# absolute type parameter gives  us numeric frequencies of items  independently
+```
+
+```{r}
+itemFrequencyPlot(tr,topN=20,type="relative",col=brewer.pal(8,'Pastel2'),main="Relative Item Frequency Plot")
+#relative type parameter the number of times an item has appeared as compared to others 
+```
+# since whole milk has the highest sales bringing youghurt  next to milk and 1 item will increase its sales.
+#  root vegestable should be positioned next to other vegetables to increase its sales.
+# citrus fruits should be placed close to tropicalfruit and bottkled water which has more sales
+
+# generating rules using Apriori algorythm
+```{r}
+# Min Support as 0.001, confidence as 0.8. which are the default values and max of 10 items
+association.rules <- apriori(tr, parameter = list(supp=0.001, conf=0.8,maxlen=10))
+
+```
+
+```{r}
+summary(association.rules) 
+#
+```
+# the total number of rules are 463
+# Distribution of rule length - rule with length of  4 has the highest number of rules while  that with lenght of 6 has the lowest number of rules.
+
+#
+#inspecting  the rules 
+```{r}
+# printing  the first 8 rules
+inspect(association.rules[1:8])
+#
+```
+# 100% of  customers of who bought (17,tropical fruit) also bought whole milk
+#91% of those who bought  cereals and curd bought whole milk
+# 85% of those who bought {16, whipped/sour cream} also bought whole milk
+```{r}
+
+#To find out which items are likely to be purchased with whole milk:
+rules<-apriori(data=tr, parameter=list(supp=0.001,conf = 0.8), 
+ appearance = list(default="lhs",rhs="whole milk"),
+ control = list(verbose=F))
+ rules<-sort(rules, decreasing=TRUE,by="confidence")
+ inspect(rules[1:6])
+```
+```{r}
+# Filter rules with confidence greater than 0.6 or 60%
+subRules<-association.rules[quality(association.rules)$confidence>0.6]
+#Plot SubRules
+plot(subRules,jitter=0)
+# rules with high lift have low surpport
+```
+## rules with high lift have low surpport while rules with lo lift have high surppport
+#
+
+# plot using 2-key- plot
+```{r}
+# using confidence as y and surpport as x
+plot(subRules,method="two-key plot",jitter= 0)
+## order is the number of items in a rule
+
+```
+#rule with 6 items has  low support which means a rule with more items  has low suppport than a rule  with few items
+
+# graph Based visualizations
+
+```{r}
+top10subRules <- head(subRules, n = 10, by = "confidence")
+
+plot(top10subRules, method = "graph",  engine = "htmlwidget")
+```
+
