@@ -1,0 +1,907 @@
+
+
+**Specific Data Analytics Question**
+
+Analyzing the Supermarket data to find the best performing branches, Generate Association rules from the market basket
+and performing Customer segmentation.
+
+**Metrics for Success**
+
+Building a Customer Segmentation model that groups Customers accurately into non-overlapping sub-groups distinct from each other.
+
+**Understanding the Context**
+
+Businesses are often indulged in the race to increase their customers and make revenue. Without it, a company cannot earn profit and stay viable in the long run. Retail Store XYZ has been in operation since 2008. It's until 2016 that the store's revenue started decreasing by 10%. This research seeks to populate a Customer Segmentation Model that can help the firm market and sell more effectively.
+
+Customer segmentation is the process by which customers are divided  based on [Demographics](https://www.voxco.com/blog/what-is-demographic-segmentation/#:~:text=Demographic%20segmentation%20is%20a%20market,can%20be%20addressed%20more%20effectively) or [Behavior](https://www.yieldify.com/blog/behavioral-segmentation-definition-examples/#:~:text=Behavioral%20segmentation%20refers%20to%20a,a%20particular%20business%20or%20website). The business impact of doing this is more important as it increases Customer lifetime value and drives greater customer loyalty.
+
+While traditional mass marketing techniques work and are still effective, it is inefficient and costly compared to targeted advertisements where one can correctly identify their customers. In simple terms, if customers can be accurately clustered, customized advertisements and offers to increase engagements can be created. 
+
+
+**Specific objectives**
+
+1. Determine the effect spending on Advertisement, Promotion and Administration have on the profit of the supermarket.
+
+2. Identify the state with the best performing branches.
+
+3. Generate the revenue from the branches. 
+
+3. Determine which advertisement attracted  customers the most.
+
+4. Find the most selling product in the supermarket.
+
+5. Determine the customers demographic information.
+
+6. Perform Clustering. 
+
+
+**Experimental Design**
+
+1.Data Preparation
+
+ -  Loading the dataset
+ 
+ -  Data Uniformity
+ 
+ -  Checking for Missing/Duplicate Values
+ 
+ -  Checking Outliers
+ 
+2.Exploratory Data Analysis
+
+ -  Univariate Analysis
+  
+ -  Bivariate Analysis
+ 
+3.Clustering
+ 
+4.Conclusions and Recommendations
+
+
+**Data Relevance**
+
+Supermarket Branches Dataset:
+
+ - Advertisement Spending ~ Total advertisement Spending across all the 3 branches
+ 
+ - Promotion Spending ~ Total promotion Spending across all the 3 branches
+ 
+ - Administration Spending ~ Total administration Spending across all the 3 branches
+ 
+ - State ~ New York, California and Florida
+ 
+ - Profit ~ Total amount of profit generated.
+ 
+ 
+ Supermarket Customers Dataset:
+
+ - Customer ID ~ Unique customer ID number
+ 
+ - Gender ~ Gender of the customer (Male or Female)
+ 
+ - Age ~ Age of the Customer in Years
+ 
+ - Annual Income ~ Income of the customers in thousands (K$)
+ 
+ - Spending Score ~ Spending score of the customer from a scale of 1-100
+
+
+
+# SUPERMARKET BRANCH ANALYSIS
+
+**Data Preparation**
+
+Loading Libraries
+``` {r}
+#Loading dependencies: 
+library(readxl)
+library(tidyverse)
+library(scales)
+library(psych)
+library(mlr)
+library(grid)
+library(ggplot2)
+library(gridExtra)
+library(crosstable)
+library(GGally)
+library(caret)
+library(ggcorrplot)
+library(data.table)
+library(superml)
+library(factoextra)
+library("ggdendro")
+library(flashClust)
+library(NbClust)
+library(cluster)
+library(purrr)
+library(arules)
+library(arulesViz)
+library(moments)
+library(data.table)
+
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+```
+
+
+Loading the Dataset
+```{r}
+#Importing the data to the Global Environment:
+data <- read_excel("C:/Users/Elijah/Desktop/50_SupermarketBranches.xlsx")
+
+#Printing the first 4 rows of the dataframe
+head(data, n=4)
+
+```
+
+
+```{r}
+#Checking the data structure:
+str(data)
+```
+The data has 50 observations and 5 variables. 4 of the variables are numeric and 1 is character
+
+```{R}
+#checking for distinct values in the data:
+unique(data)
+
+```
+
+Checking missing values
+```{r}
+#checking for null values
+sum(is.na(data))
+
+```
+
+Checking for duplicates
+```{r}
+#checking duplicates
+anyDuplicated((data))
+
+```
+The data has no missing or duplicate values
+
+
+Checking for outliers
+```{r}
+
+#Renaming the column names for ease of reference:
+names(data) <- c('Advertisement.Spend', 'Promotion.Spend', 'Administration.Spend', 'State', 'Profit') 
+
+#subset of numeric data
+data_numeric<-data[,c(1:3,5)]
+
+#Using a Box plot to check for outliers on the numerical variables:
+qplot( x =  Advertisement.Spend, y = "", geom = "boxplot", data = data_numeric, col = I("darkolivegreen4"), fill = I("cyan3"), main = "Boxplot on Advertisment Spending")
+qplot( x =  Promotion.Spend,  y = "", geom = "boxplot", data = data_numeric, col = I("darkolivegreen4"), fill = I("cyan3"), main = "Boxplot on Promotion Spending")
+qplot( x =  Administration.Spend, y = "", geom = "boxplot", data = data_numeric ,col = I("darkolivegreen4"), fill = I("cyan3"), main = "Boxplot on Administration Spending")
+
+
+```
+The dataset has no outlier 
+
+
+**Exploratory Data Analysis**
+
+**Univariate Analysis**
+```{r}
+#Getting the summary statistics:
+summary(data_numeric)
+
+```
+
+The leading average cost is the administration followed by promotion and finally the advertisement.the mean profit generated was 112013
+
+```{r}
+#Finding the standard deviation and variance:
+stats <- data.frame(
+  sd=apply(data_numeric, 2 ,sd),
+  var=apply(data_numeric,2,var),
+  kurtosis= apply(data_numeric,2,kurtosis),
+  skewness = apply(data_numeric,2,skewness)
+)
+stats
+
+```
+The variables have high spread from the mean because they have very large standard deviation.
+
+The variables are not highly skewed as they have skewness between 1 and -1.
+
+The variables are mesokurtic as they have kurtosis not greater than 3 thus showing that the data has no outliers
+
+ 
+```{r}
+#The number of branches per state:
+state<- table(data$State)
+
+#visualizing using a bar plot:
+barplot(state,col="cyan3", main = "Distribution of States")
+```
+
+California and New York have 17 branches and Florida has 16
+
+
+**Bivariate Analysis**
+```{r}
+#Relationship between advert spending and profit:
+ggplot(data,aes(x=Advertisement.Spend,y=Profit))+
+  geom_point() + labs(title = "Advertising Spending and Profit")
+
+```
+
+Advertisement and Profit have a strong positive correlation because the more the advertising the more the profits.
+
+```{r}
+#Relationship between promotion and profit:
+ggplot(data,aes(x=Promotion.Spend,y=Profit))+
+  geom_point() + labs(title = "Promotion Spending and Profit")
+
+```
+
+Profit and Promotion have a weak positive correlation meaning that Promotion spending has no great effect on the profit
+
+```{r}
+#Relationship between administration nd profit:
+ggplot(data,aes(x=Administration.Spend,y=Profit))+
+  geom_point() + labs(title = "Administration Spending and Profit")
+
+```
+
+Administration cost has a strong positive correlation with the profit meaning better remuneration of the employees increases the profit
+
+```{r}
+#Comparing profits with the various state:
+profit_per_state = data%>% group_by(State) %>%
+                    summarise(total_Profits = sum(Profit),
+                              ,
+                              .groups = 'drop')
+head(profit_per_state)
+ggplot(data ) + 
+   geom_point(mapping = aes(x = 1:nrow(data), y = Profit, color = State)) + labs(title = " Profit across the Different States")
+```
+
+The states with the best performing branches based on the profits are New York followed by Florida and then California
+
+
+```{r}
+#Comparing Advertisement.Spend with the various state:
+Advertisement.Spend_per_state = data%>% group_by(State) %>%
+                    summarise(total_Advertisement.Spend = sum(Advertisement.Spend),
+                              ,
+                              .groups = 'drop')
+head(Advertisement.Spend_per_state)
+ggplot(data ) + 
+   geom_point(mapping = aes(x = 1:nrow(data), y = Advertisement.Spend, shape = State)) + labs(title = "Advertisment Cost across States")
+
+```
+
+The states with the highest advertisement cost is New York,followed by Florida and the California. This could explain why New York  has the leading profit since the profit and advertisement costs are highly correlated.
+
+
+```{r}
+#Comparing Promotion.Spend with the various state:
+Promotion.Spend_per_state = data%>% group_by(State) %>%
+                    summarise(total_Promotion.Spend = sum(Promotion.Spend),
+                              ,
+                              .groups = 'drop')
+head(Promotion.Spend_per_state)
+ggplot(data ) + 
+   geom_point(mapping = aes(x = 1:nrow(data), y = Promotion.Spend, shape = State)) + labs(title = "Promotion Cost across the States ")
+
+```
+
+The leading state with the promotion cost is the New York followed by California and then Florida .
+
+New York has leading profit because of doing lots of promotion and California spends lots on promotion yet the correlation between the promotion and profit is weak thus the reason it has the least profits.
+
+
+```{r}
+#comparing Administration.Spend with the various state:
+Administration.Spend_per_state = data%>% group_by(State) %>%
+                    summarise(total_Administration.Spend= sum(Administration.Spend),
+                              ,
+                              .groups = 'drop')
+head(Administration.Spend_per_state)
+ggplot(data ) + 
+   geom_point(mapping = aes(x = 1:nrow(data), y = Administration.Spend, color  = State)) + labs(title = " Administration Cost across States")
+
+```
+
+The leading state with high cost of administration is Florida ,followed by New York and finally California.
+
+Florida has better profits since the administration cost has a positive correlation with the profits 
+
+
+```{r}
+#creating a new column containing the sum of all the expenses:
+data$expenses<- rowSums(data[,c(1:3)])
+head(data)
+#plotting a scatter plot for the expenses and profit:
+x<- data$expenses
+y<-data$Profit
+plot(x, y, main = "profit vs expensess",
+     xlab = "expenses", ylab = "profit")
+abline(lm(y ~ x, data = data), col = "blue")
+```
+
+The profit and expenses have a positive correlation meaning for the profits to increase you ought to incur an extra cost
+
+
+```{r}
+#Getting the state with the most expenses:
+expenses_per_state = data%>% group_by(State) %>%
+                    summarise(total_expenses= sum(expenses),
+                              ,
+                              .groups = 'drop')
+head(expenses_per_state)
+ggplot(data ) + 
+   geom_point(mapping = aes(x = 1:nrow(data), y = expenses, color  = State)) + labs(title = "Expenses across the States")
+
+```
+
+The leading state with high cost is Florida followed by New York and California.
+
+This explains why California is the least in the profits meaning it does not incur lots of cost to generate profits but also a cause of concern since New York is performing better than Florida yet it does not include lot of of expenses
+
+
+```{r}
+#The total revenue of a company equals to expenses plus profit thus we create a new column of revenue:
+data$total.revenue<-rowSums(data[,c(5:6)])
+#finding state with the most revenue
+total.revenue_per_state = data%>% group_by(State) %>%
+                    summarise(total_total.revenue= sum(total.revenue),
+                              ,
+                              .groups = 'drop')
+total.revenue_per_state
+#visualizing the revenue per stat
+pct = round((total.revenue_per_state$total_total.revenue/sum(total.revenue_per_state$total_total.revenue))*100,1)
+# Plot the chart.
+pie(total.revenue_per_state$total_total.revenue,labels = pct,main='Revenue Collection across the States', col = rainbow((nrow(total.revenue_per_state))))
+#adding legend to our pie chart
+legend("topright", c("California","Florida","New York"),cex = 0.8,fill = rainbow(nrow(total.revenue_per_state))) 
+
+```
+The leading states with the revenue is Florida followed by New York and then California.this means that based on Revenue generation the Florida branches are performing well but New York has the leading profits because it tends to focus its cost to the cost that has a high correlation with profits unlike Florida that uses it revenue on costs that has weak correlation with the profits
+
+```{r}
+#Encoding the state column
+#install.packages("superml")
+library("superml")
+lbl = LabelEncoder$new()
+data$State = lbl$fit_transform(data$State)
+head(data)
+```
+```{r}
+#Finding the correlation matrix:
+cormat<- cor(data)
+
+#Get upper triangle of the correlation matrix:
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}
+upper_tri <- get_upper_tri(cormat)
+
+```
+
+
+```{r}
+### Melt
+library(reshape2)
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+### Heatmap
+ggplot(data = melted_cormat, aes(Var2, Var1, fill = value))+
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+   midpoint = 0, limit = c(-1,1), space = "Lab", 
+   name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+ theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+    size = 12, hjust = 1))+ (labs(title = "Correlation Matrix \n"))
+ coord_fixed()
+```
+
+Summary:
+
+- The state with the highest number of branches is California and New York
+
+- New York is the best performing State in terms of Profit
+
+- Florida reported the highest amount of expenses
+
+
+
+# ASSOCIATION ANALYSIS
+
+
+Loading the Data
+```{r}
+#Importing the data to the Global Environment:
+tr <- read.transactions("C:/Users/Elijah/Desktop/groceries - groceries.csv", sep=',')
+
+#Exploring the data using the Summary function:
+summary(tr)
+```
+
+There are 9,836 transactions and  231 products
+
+
+Determining the frequency of items appearing in the Market Basket
+```{r}
+#Create an item frequency plot for the top 10 items:
+if (!require("RColorBrewer")) {
+# install color package of R
+install.packages("RColorBrewer")
+#include library RColorBrewer
+library(RColorBrewer)
+}
+itemFrequencyPlot(tr,topN=20,type="absolute",col=brewer.pal(8,'Pastel2'), main="Absolute Item Frequency Plot")
+# absolute type parameter gives  us numeric frequencies of items  independently
+```
+
+```{r}
+#Relative Item Frequency Plot
+itemFrequencyPlot(tr,topN=20,type="relative",col=brewer.pal(8,'Pastel2'),main="Relative Item Frequency Plot")
+#relative type parameter the number of times an item has appeared as compared to others 
+
+```
+Relative type parameter gives the number of times an item has appeared as compared to others .
+
+
+Generating rules using Apriori algorithm
+```{r}
+# Min Support as 0.001, confidence as 0.8. which are the default values and max of 10 items
+association.rules <- apriori(tr, parameter = list(supp=0.001, conf=0.8,maxlen=10))
+summary(association.rules) 
+
+```
+
+The total number of rules are 463
+
+Distribution of rule length: rule with length of  4 has the highest number of rules while  that with length of 6 has the lowest number of rules.
+
+
+Inspecting  the rules 
+```{r}
+# printing  the first 8 rules
+inspect(association.rules[1:8])
+
+```
+ 
+```{r}
+#To find out which items are likely to be purchased with whole milk:
+rules<-apriori(data=tr, parameter=list(supp=0.001,conf = 0.8), 
+ appearance = list(default="lhs",rhs="whole milk"),
+ control = list(verbose=F))
+ rules<-sort(rules, decreasing=TRUE,by="confidence")
+ inspect(rules[1:6])
+ 
+```
+
+
+```{r}
+# Filter rules with confidence greater than 0.6 or 60%
+subRules<-association.rules[quality(association.rules)$confidence>0.6]
+#Plot SubRules
+plot(subRules,jitter=0)
+# rules with high lift have low surpport
+
+```
+Rules with high lift have low support while rules with low lift have high support
+
+Plotting using 2-key- plot
+```{r}
+#Using confidence as y and support as x
+plot(subRules,method="two-key plot",jitter= 0)
+# order is the number of items in a rule
+
+```
+rule with 6 items has low support which means a rule with more itemshas low support than a rule  with few items
+
+**Graph Based visualizations**
+
+```{r}
+top10subRules <- head(subRules, n = 10, by = "confidence")
+plot(top10subRules, method = "graph",  engine = "htmlwidget")
+
+```
+
+
+# CUSTOMER SEGMENTATION
+
+Loading the Dataset
+```{r}
+#Importing the data to the Global Environment:
+Demographics <- read_excel("C:/Users/Elijah/Desktop/Customer Demographics.xlsx")
+
+#Printing the first 4 rows of the dataframe
+head(Demographics, n=4)
+
+```
+
+```{r}
+#Checking the Number of Rows and Columns:
+dim(Demographics)
+
+```
+
+
+Data Uniformity
+```{r}
+#Getting Information on the data types on each respective column:
+sapply(Demographics, class)
+
+```
+```{r}
+#Renaming the column names for ease of reference:
+names(Demographics) <- c('CustomerID', 'Gender', 'Age', 'AnnualIncome', 'SpendingScore')
+
+```
+
+
+```{r}
+#Viewing the full information:
+str(Demographics)
+
+```
+ - The Dataset is made up of 200 Rows and 5 Columns
+ 
+ - The datatypes in the data are as follows:
+ 
+   -  Continuous: Customer ID, Age, Annual Income and Spending Score
+   
+   -  Character: Gender
+   
+
+Missing Values
+```{r}
+#Checking for null entries in each column:
+colSums(is.na(Demographics))
+
+```
+
+
+Duplicate values
+```{r}
+#Checking for identical entries:
+sum(duplicated(Demographics))
+
+
+```
+
+The data has no missing or duplicate values.
+
+
+Checking for Outliers
+```{r}
+#Using a Box plot to check for outliers on the numerical variables:
+qplot( x =  Age, y = "", geom = "boxplot", data = Demographics, col = I("darkolivegreen4"), fill = I("cyan3"), main = "Boxplot on Age ")
+qplot( x =  AnnualIncome,  y = "", geom = "boxplot", data = Demographics, col = I("darkolivegreen4"), fill = I("cyan3"), main = "Boxplot on Annual Income (K$)")
+qplot( x =  SpendingScore, y = "", geom = "boxplot", data = Demographics ,col = I("darkolivegreen4"), fill = I("cyan3"), main = "Boxplot on Spending Score (1-100)")
+
+
+```
+
+An outlier can be observed on Annual Income. Since there's no basis to assume the entry is not valid, the outlier is not dropped.
+
+
+
+**Exploratory Data Analysis**
+
+This process involves investigating the dataset to discover patterns.
+
+**Univariate Analysis**
+
+This analysis aims to explore each demographic variable in the dataset separately
+
+ - Gender Distribution
+
+```{r}
+#To view the distribution of Gender:
+Gen_table <- table(Demographics$Gender)
+
+#Plotting the Information above:
+x <- c(56, 44)
+labels <- c('Females', 'Males')
+colors <- c('cyan3','cyan4')
+#pie_percent<- round(100*x/sum(x), 0) 
+pie(x, labels = percent(x/100), main=' Gender Distribution', density=30, col=colors)
+legend("topright", c("Females", "Males"), cex = 0.9, fill = colors)
+
+```
+
+Of the 200 sampled customers, 112 were Females while 88 were Males.
+
+
+ - Age Distribution
+ 
+```{r}
+#To view the Age distribution of the customers:
+Age_table <- table(Demographics$Age)
+
+#Plotting the Information above:
+ggplot(data = Demographics, mapping = aes(x = Age)) + 
+  geom_histogram(fill = "cyan3", color = "black", binwidth = 2) + labs(x = "Age (Year's)", title = "Age Distribution")
+                                                                               
+
+```
+
+The Age of the customers range from 18-70 years.
+
+Those frequently visiting the supermarket are of the young and adult age groups (27-45)
+
+Less frequent visitors are those aged 55 and above.
+
+
+ - Income Levels
+ 
+```{r}
+#To view the Income distribution of the customers:
+Income_table <- table(Demographics$AnnualIncome)
+
+#Plotting the Information above:
+ggplot(data = Demographics, mapping = aes(x = AnnualIncome)) + 
+  geom_histogram(fill = "cyan3", color = "black", binwidth = 10) + labs(x = "Income (K$)", title = "Income Levels")
+                
+```
+
+The Income levels of the customers range from $15k - 137k.
+
+
+ - Spending Score
+ 
+```{r}
+#To view the Spending Score of the customers:
+Spending_table <- table(Demographics$SpendingScore)
+
+#Plotting the Information above:
+ggplot(data = Demographics, mapping = aes(x = SpendingScore)) + 
+  geom_histogram(fill = "cyan3", color = "black", binwidth = 10) + labs(x = "Spending Score (1-100)", title = "Spending Scores")
+
+```
+
+[Spending Score](https://www.predicagroup.com/blog/customer-scoring-segmentation/) is a score given to a customer by the Supermarket authorities based on the money spent and the behavior of the customer.
+
+This is an Important Chart as it gives an idea about the Spending rate of the Customers Visiting the Supermarket.
+
+From the plot, most of the customers have a score in the range of 40 - 60.
+
+There are customers also having a score of 99 showing that the Supermarket caters for the variety of customers with varying needs and requirements.
+
+
+```{r}
+#Printing the Descriptive Summary:
+summary(Demographics)
+
+```
+
+
+**Bivariate Analysis**
+ 
+This analysis involves two variables being observed against each other.
+
+ - Correlation Matrix
+
+```{r}
+#Creating a dataframe Cr:
+Cr<- Demographics
+
+#Visualizing the Plot:
+corr_map <- ggcorr(Cr[,3:5], method=c("everything", "pearson"), label=TRUE, hjust = .90, size = 3, layout.exp = 2) + (labs(title = "Correlation Matrix \n"))
+corr_map
+
+
+```
+
+Age is Negatively correlated with Spending Score.
+
+No correlation exists between Annual Income and Age, Spending Score and Annual Income
+
+
+The analysis seeks to further answer:
+
+
+ - Does Income Levels affect Spending Scores
+
+```{r}
+#To see the relationship between Income and Spending scores across the different genders:
+ggplot(Demographics, aes(x=AnnualIncome, y = SpendingScore )) + geom_point(aes(colour= `Gender`))+labs(title='Relationship Between Income and Spending Score')
+
+```
+
+Annual income of $40–70k corresponds to a 40–60 spending score.
+
+There seem to be a cluster-like pattern when looking at income and spending score: High Income Individuals with High Income spending, High Income Individuals with Low Spending Score.
+ 
+
+ - Does Age influence Spending Scores
+ 
+```{r}
+#To see the relationship between Age and Spending scores across the different genders:
+ggplot(Demographics, aes(x=Age, y = SpendingScore )) + geom_point(aes(colour= `Gender`))+labs(title='Relationship between Age and Spending Score')
+
+```
+
+The lower the age higher the spending score.
+
+Customers in the age range of 15-40 years old make up most the the customers with a spending score of above 60
+ 
+Customers above 40 years old does not seem to have a spending score of above 60. This can be justified with the fact that they make a small number of the entire sample.
+
+
+ - Does Age influence Annual Income
+ 
+```{r}
+#To see the relationship between Age and Annual Income across the different genders:
+ggplot(Demographics, aes(x=Age, y = AnnualIncome )) + geom_point(aes(colour= `Gender`))+labs(title='Relationship between Age and Annual Income')
+
+```
+
+Income Levels are high among customers aged 30-50 years.
+
+
+
+**K-Means Clustering**
+
+This algorithm aims to partition observations into clusters based on Feature similarity.
+
+```{r}
+#Creating the modelling dataframe:
+Model <- select(Demographics , 'Age', 'Age', 'AnnualIncome', 'SpendingScore')
+
+#Viewing the Data types:
+sapply(Model, class)
+
+```
+
+Feature Engineering
+
+1. Feature Scaling
+
+```{r}
+#Transforming the ranges to the same scale of 0 to 1 using Min Max:
+#Model <- as.data.frame(sapply(Model, function(x) (x-min(x))/(max(x)-min(x))))
+
+```
+
+**Model Training**
+
+- Determining Optimal Clusters
+
+Determining the Best K using the 3 popular methods:
+
+1. Elbow Method
+
+```{r}
+#Using the Elbow method to find the optimal k:
+set.seed(123)
+
+#Instantiating a Function to calculate total intra-cluster sum of square: 
+iss <- function(k) {
+  kmeans(Model,k,iter.max=100,nstart=100,algorithm="Lloyd" )$tot.withinss
+}
+k.values <- 1:10
+iss_values <- map_dbl(k.values, iss)
+plot(k.values, iss_values,
+    type="b", pch = 19, frame = FALSE, 
+    xlab="Number of clusters(K)",
+    ylab="Total intra-clusters sum of squares")
+
+
+```
+
+From the graph above, 4 is the appropriate number since it seems to be appearing at the bend in the elbow plot.
+
+
+2.Gap statistic
+
+```{r}
+# Finding the optimal number of clusters using the Gap Statistic method:
+set.seed(123)
+stat_gap <- clusGap(Model, FUN = kmeans, nstart = 25,
+            K.max = 10, B = 50)
+fviz_gap_stat(stat_gap)
+
+```
+
+
+3.Silhouette method
+
+```{r}
+#Finding the optimal number of clusters using the Silhouette method:
+fviz_nbclust(Model, kmeans, method = "silhouette")
+
+```
+
+
+From the Methods above, the best K is 6
+
+```{r}
+# Plotting the K_Mean Clusters with the Optimal K:
+New_Model = kmeans(Model,6,iter.max=50,nstart=50,algorithm="Lloyd")
+New_Model
+
+```
+
+
+**Interpreting the Clusters**
+
+To get a more comprehensible understanding of the predicted clusters:
+
+- Clustering customers based on Annual Income and Spending score
+
+```{r}
+#To view the clustering:
+set.seed(1)
+ggplot(Model, aes(x =AnnualIncome, y = SpendingScore)) + 
+  geom_point(stat = "identity", aes(color = as.factor(New_Model$cluster))) +
+  scale_color_discrete(name=" ",
+              breaks=c("1", "2", "3", "4", "5","6"),
+              labels=c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4", "Cluster 5","Cluster 6")) +
+  ggtitle("Segments of Supermarket Customers", subtitle = "Annual Income and Spending Score")
+
+
+```
+
+Cluster 2: 
+
+ - This Cluster represents customers with low annual income and  low spending score.
+
+ - This is quite reasonable as people having low salaries prefer to buy less. 
+ 
+ - The Supermarket would be least interested in people belonging to this cluster.
+ 
+ 
+Cluster 3: 
+
+- This Cluster represents customers with high annual income and low spending score
+
+- This might be those unsatisfied with the products/services being offered. These can be the prime targets as they have the potential to spend money. The Supermarket can look into adding new facilities that can attract these people and meet their needs
+
+Cluster 1 and 5: 
+
+ - This clusters represents customers with average annual income and average spending scores.
+ 
+ - These customers are careful with their spending scale as their income levels are not excessive.
+ 
+
+Cluster 4: 
+
+ - This cluster represents customers with high annual income and high spending score.
+ 
+ - This is the ideal case as this group forms the prime sources of profit.These are the regular customers who are satisfied with the products/services 
+
+
+Cluster 6:
+
+ - This cluster represents customers with low annual income but high spending score.
+
+ - These are those people who for some reason love to buy products more often even though they have a low income. 
+ 
+ - The supermarket might not target these people that effectively but still will not want to lose them.
+
+ 
+**Recommendations and Conclusion**
+
+From Customer Segmentation:
+
+ - Management should consider having daily/weekly items for sale to keep the customers with high spending scores as this type could purchase based on whats on special discount.
+
+ - Customers with low spending scores are those that potentially purchase based on prices and discounts. Point reward programs or creating prices be created .
+
+General: 
+
+ - Find a way to reduce expenses in the branches that are making losses to maximize profits
+ 
+ - Decrease revenue spent on advertising for products with less clicks
+ 
+ - Arrange the shelves in a way that products that have high association go together or side by side
+ 
+ - Have promotions that includes the products with high association
+ 
+From the analysis, the data provided has a wide range of insights. It's not as useless as the xyz supermarket had suggested in the beginning.
+
