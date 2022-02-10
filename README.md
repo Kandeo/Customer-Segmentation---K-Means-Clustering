@@ -1,4 +1,4 @@
-# USA Supermarket Data Analysis
+# Supermarket Customers Cluster Analysis
 
 #### Data Science Project, February 2022
 
